@@ -416,6 +416,7 @@ export class McpContext {
         }
         const selectedPage = this.#selectedPage;
         let foregroundPage = null;
+        let selectedText = '';
         try {
             // Disable focus emulation on ALL pages to read real visibilityState.
             await Promise.all(pages.map(page => page.emulateFocusedPage(false).catch(error => {
@@ -437,6 +438,15 @@ export class McpContext {
                     this.logger('Error checking visibility', page.url(), error);
                 }
             }
+            // Read selected text from the foreground page while emulation is off.
+            if (foregroundPage && !foregroundPage.isClosed()) {
+                try {
+                    selectedText = await foregroundPage.evaluate(() => window.getSelection()?.toString() ?? '');
+                }
+                catch (error) {
+                    this.logger('Error reading selected text', error);
+                }
+            }
         }
         finally {
             // Restore focus emulation on the selected page.
@@ -449,7 +459,11 @@ export class McpContext {
         if (!foregroundPage) {
             return null;
         }
-        return { page: foregroundPage, pageId: this.getPageId(foregroundPage) };
+        return {
+            page: foregroundPage,
+            pageId: this.getPageId(foregroundPage),
+            selectedText,
+        };
     }
     getDevToolsPage(page) {
         return this.#pageToDevToolsPage.get(page);
