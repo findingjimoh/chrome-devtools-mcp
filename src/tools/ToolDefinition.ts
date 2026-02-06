@@ -146,6 +146,7 @@ export type Context = Readonly<{
    * Returns a reqid for a cdpRequestId.
    */
   resolveCdpElementId(cdpBackendNodeId: number): string | undefined;
+  getForegroundPage(): Promise<{page: Page; pageId: number | undefined} | null>;
   installExtension(path: string): Promise<string>;
   uninstallExtension(id: string): Promise<void>;
   listExtensions(): InstalledExtension[];

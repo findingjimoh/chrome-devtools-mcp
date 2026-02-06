@@ -552,6 +552,58 @@ export class McpContext implements Context {
     return this.#pages;
   }
 
+  async getForegroundPage(): Promise<{
+    page: Page;
+    pageId: number | undefined;
+  } | null> {
+    const pages = this.getPages();
+    if (pages.length === 0) {
+      return null;
+    }
+
+    const selectedPage = this.#selectedPage;
+    let foregroundPage: Page | null = null;
+
+    try {
+      // Disable focus emulation on ALL pages to read real visibilityState.
+      await Promise.all(
+        pages.map(page =>
+          page.emulateFocusedPage(false).catch(error => {
+            this.logger('Error disabling focus emulation', error);
+          }),
+        ),
+      );
+
+      // Find the page with real visibilityState === "visible".
+      for (const page of pages) {
+        if (page.isClosed()) {
+          continue;
+        }
+        try {
+          const state = await page.evaluate(() => document.visibilityState);
+          if (state === 'visible') {
+            foregroundPage = page;
+            break;
+          }
+        } catch (error) {
+          this.logger('Error checking visibility', page.url(), error);
+        }
+      }
+    } finally {
+      // Restore focus emulation on the selected page.
+      if (selectedPage && !selectedPage.isClosed()) {
+        void selectedPage.emulateFocusedPage(true).catch(error => {
+          this.logger('Error re-enabling focus emulation', error);
+        });
+      }
+    }
+
+    if (!foregroundPage) {
+      return null;
+    }
+    return {page: foregroundPage, pageId: this.getPageId(foregroundPage)};
+  }
+
   getDevToolsPage(page: Page): Page | undefined {
     return this.#pageToDevToolsPage.get(page);
   }

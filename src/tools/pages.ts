@@ -349,6 +349,33 @@ export const handleDialog = defineTool({
   },
 });
 
+export const getForegroundPage = defineTool({
+  name: 'get_foreground_page',
+  description: `Detect which Chrome tab the user is currently viewing (the foreground/active tab). Temporarily disables focus emulation to read the real visibility state, then restores it. Returns the foreground page's ID, URL, and title.`,
+  annotations: {
+    category: ToolCategory.NAVIGATION,
+    readOnlyHint: true,
+  },
+  schema: {},
+  handler: async (_request, response, context) => {
+    const result = await context.getForegroundPage();
+    response.setIncludePages(true);
+
+    if (!result) {
+      response.appendResponseLine(
+        'No foreground tab detected. Chrome may be minimized or all tabs hidden.',
+      );
+      return;
+    }
+
+    const {page, pageId} = result;
+    response.appendResponseLine(`Foreground tab detected:`);
+    response.appendResponseLine(`  Page ID: ${pageId}`);
+    response.appendResponseLine(`  URL: ${page.url()}`);
+    response.appendResponseLine(`  Title: ${await page.title()}`);
+  },
+});
+
 export const getTabId = defineTool({
   name: 'get_tab_id',
   description: `Get the tab ID of the page`,
