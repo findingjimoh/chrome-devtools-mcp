@@ -316,11 +316,14 @@ export const getForegroundPage = defineTool({
             response.appendResponseLine('No foreground tab detected. Chrome may be minimized or all tabs hidden.');
             return;
         }
-        const { page, pageId } = result;
+        const { page, pageId, selectedText } = result;
         response.appendResponseLine(`Foreground tab detected:`);
         response.appendResponseLine(`  Page ID: ${pageId}`);
         response.appendResponseLine(`  URL: ${page.url()}`);
         response.appendResponseLine(`  Title: ${await page.title()}`);
+        if (selectedText) {
+            response.appendResponseLine(`  Selected text: ${selectedText}`);
+        }
     },
 });
 export const getTabId = defineTool({

@@ -368,11 +368,14 @@ export const getForegroundPage = defineTool({
       return;
     }
 
-    const {page, pageId} = result;
+    const {page, pageId, selectedText} = result;
     response.appendResponseLine(`Foreground tab detected:`);
     response.appendResponseLine(`  Page ID: ${pageId}`);
     response.appendResponseLine(`  URL: ${page.url()}`);
     response.appendResponseLine(`  Title: ${await page.title()}`);
+    if (selectedText) {
+      response.appendResponseLine(`  Selected text: ${selectedText}`);
+    }
   },
 });
 
