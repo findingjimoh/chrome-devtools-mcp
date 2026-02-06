@@ -555,6 +555,7 @@ export class McpContext implements Context {
   async getForegroundPage(): Promise<{
     page: Page;
     pageId: number | undefined;
+    selectedText: string;
   } | null> {
     const pages = this.getPages();
     if (pages.length === 0) {
@@ -563,6 +564,26 @@ export class McpContext implements Context {
 
     const selectedPage = this.#selectedPage;
     let foregroundPage: Page | null = null;
+
+    // Read selected text from all pages BEFORE toggling emulation.
+    // Disabling focus emulation fires visibilitychange which can clear
+    // selections, so we capture them while the state is undisturbed.
+    const selectionByPage = new Map<Page, string>();
+    for (const page of pages) {
+      if (page.isClosed()) {
+        continue;
+      }
+      try {
+        const text = await page.evaluate(
+          () => window.getSelection()?.toString() ?? '',
+        );
+        if (text) {
+          selectionByPage.set(page, text);
+        }
+      } catch (error) {
+        this.logger('Error reading selection', page.url(), error);
+      }
+    }
 
     try {
       // Disable focus emulation on ALL pages to read real visibilityState.
@@ -601,7 +622,11 @@ export class McpContext implements Context {
     if (!foregroundPage) {
       return null;
     }
-    return {page: foregroundPage, pageId: this.getPageId(foregroundPage)};
+    return {
+      page: foregroundPage,
+      pageId: this.getPageId(foregroundPage),
+      selectedText: selectionByPage.get(foregroundPage) ?? '',
+    };
   }
 
   getDevToolsPage(page: Page): Page | undefined {
