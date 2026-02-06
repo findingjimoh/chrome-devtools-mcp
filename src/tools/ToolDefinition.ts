@@ -153,10 +153,78 @@ export type Context = Readonly<{
   getExtension(id: string): InstalledExtension | undefined;
 }>;
 
+/**
+ * Unwraps ZodOptional, ZodDefault, ZodNullable, and ZodEffects to find the
+ * base type name (e.g. "ZodNumber", "ZodBoolean", "ZodString").
+ */
+function getBaseTypeName(schema: zod.ZodTypeAny): string {
+  let current = schema;
+  for (;;) {
+    const name: string = current._def?.typeName;
+    if (
+      name === 'ZodOptional' ||
+      name === 'ZodDefault' ||
+      name === 'ZodNullable'
+    ) {
+      current = current._def.innerType;
+    } else if (name === 'ZodEffects') {
+      current = current._def.schema;
+    } else {
+      return name ?? 'unknown';
+    }
+  }
+}
+
+/**
+ * Wraps a zod schema field with string-to-primitive coercion when the
+ * underlying type is a number or boolean. MCP clients may serialize all
+ * parameters as strings, causing strict zod validation to reject them.
+ */
+function coerceField(field: zod.ZodTypeAny): zod.ZodTypeAny {
+  const base = getBaseTypeName(field);
+  if (base === 'ZodNumber') {
+    return zod.preprocess(val => {
+      if (typeof val === 'string') {
+        const n = Number(val);
+        if (!Number.isNaN(n)) {
+          return n;
+        }
+      }
+      return val;
+    }, field) as unknown as zod.ZodTypeAny;
+  }
+  if (base === 'ZodBoolean') {
+    return zod.preprocess(val => {
+      if (val === 'true') {
+        return true;
+      }
+      if (val === 'false') {
+        return false;
+      }
+      return val;
+    }, field) as unknown as zod.ZodTypeAny;
+  }
+  return field;
+}
+
+/**
+ * Applies string coercion to all number and boolean fields in a schema.
+ */
+function coerceSchema<T extends zod.ZodRawShape>(schema: T): T {
+  const result: Record<string, zod.ZodTypeAny> = {};
+  for (const [key, field] of Object.entries(schema)) {
+    result[key] = coerceField(field);
+  }
+  return result as T;
+}
+
 export function defineTool<Schema extends zod.ZodRawShape>(
   definition: ToolDefinition<Schema>,
 ) {
-  return definition;
+  return {
+    ...definition,
+    schema: coerceSchema(definition.schema),
+  };
 }
 
 export const CLOSE_PAGE_ERROR =
