@@ -610,6 +610,12 @@ export class McpContext implements Context {
           this.logger('Error checking visibility', page.url(), error);
         }
       }
+
+      // Fallback: if no page reports visible (e.g. Chrome is behind other windows),
+      // use the internally tracked selected page.
+      if (!foregroundPage && selectedPage && !selectedPage.isClosed()) {
+        foregroundPage = selectedPage;
+      }
     } finally {
       // Restore focus emulation on the selected page.
       if (selectedPage && !selectedPage.isClosed()) {
